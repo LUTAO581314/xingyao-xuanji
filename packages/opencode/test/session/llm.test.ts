@@ -12,6 +12,7 @@ import { LLM } from "../../src/session/llm"
 import { LLMClient, RequestExecutor } from "@opencode-ai/llm/route"
 import { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
+import { SystemPrompt } from "@/session/system"
 import { ModelsDev } from "@opencode-ai/core/models-dev"
 
 import { testEffect } from "../lib/effect"
@@ -1473,6 +1474,10 @@ describe("session.llm.stream", () => {
         const capture = yield* Effect.promise(() => request)
         expect(capture.url.pathname.endsWith("/responses")).toBe(true)
         expect(capture.body.model).toBe(resolved.api.id)
+        expect(JSON.stringify(capture.body.input)).toContain(
+          JSON.stringify(SystemPrompt.provider(resolved)[0]).slice(1, -1),
+        )
+        expect(JSON.stringify(capture.body.input).split("# BAIRUI 个人助理定义")).toHaveLength(2)
       }),
     { config: () => openAIConfig(loadFixture("openai", "gpt-5.2").model, `${state.server!.url.origin}/v1`) },
   )
@@ -1539,6 +1544,10 @@ describe("session.llm.stream", () => {
         expect((capture.body.reasoning as { effort?: string } | undefined)?.effort).toBe("high")
         expect(capture.body.include).toEqual(["reasoning.encrypted_content"])
         expect(JSON.stringify(capture.body.input)).toContain("You are a helpful assistant.")
+        expect(JSON.stringify(capture.body.input)).toContain(
+          JSON.stringify(SystemPrompt.provider(resolved)[0]).slice(1, -1),
+        )
+        expect(JSON.stringify(capture.body.input).split("# BAIRUI 个人助理定义")).toHaveLength(2)
         expect(capture.body.input).toContainEqual({ role: "user", content: [{ type: "input_text", text: "Hello" }] })
       }),
     { config: () => openAIConfig(loadFixture("openai", "gpt-5.2").model, `${state.server!.url.origin}/v1`) },
