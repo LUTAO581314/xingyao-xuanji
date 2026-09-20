@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Root,
     [Parameter(Mandatory)][string]$OutputDirectory,
@@ -38,6 +38,7 @@ foreach ($part in @('bin', 'cmd', 'dev', 'etc', 'mingw64', 'usr', 'git-bash.exe'
 foreach ($entry in @('启动BAIRUI.cmd', '启动BAIRUI终端.cmd', '停止BAIRUI.cmd')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $entry) -Destination (Join-Path $stage $entry)
 }
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '开始使用.txt') -Destination (Join-Path $stage '开始使用.txt')
 $sourceRoot = Split-Path -Parent $PSScriptRoot
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'LICENSE') -Destination (Join-Path $stage 'LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'README.md') -Destination (Join-Path $stage 'README.md')

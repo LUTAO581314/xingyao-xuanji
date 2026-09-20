@@ -4,7 +4,15 @@
 
 将本目录中的 `启动BAIRUI.cmd`、`启动BAIRUI终端.cmd`、`停止BAIRUI.cmd` 三个入口模板另行复制到 U 盘根目录，在盘根双击使用。它们按自身位置调用 `OpenCode\bairui` 下的脚本，不在源码或安装子目录中直接运行这些模板。
 
-运行前准备好 `runtime\bun\bun.exe`、`runtime\node\node.exe`、`runtime\git\cmd\git.exe`、`runtime\git\bin\bash.exe` 和 `releases\1.18.31-bairui-brand.2\opencode.exe`。原版 OpenCode 的入口由原部署继续维护，本目录是独立的 BAIRUI 入口。
+普通用户解压完整便携包后双击 `启动BAIRUI.cmd` 即可。入口先检查 BAIRUI、Bun、Node/npm、Git/Bash 的关键文件与实际运行状态；环境完整时直接启动，不联网下载。缺失或损坏时显示中文提示，点击「是」后补齐，再自动继续启动。无需全局安装开发工具或管理员权限。
+
+恢复固定使用 `environment-release.json` 指定的已发布便携包，优先寻找 `runtime/downloads`、`releases/downloads` 或安装目录上一层的同名 ZIP，没有时下载约 299 MB。完整包通过固定 SHA-256 校验后才解压，只恢复异常组件，不改变聊天数据、配置和项目文件；组件内额外文件也保留。下载、暂存、缓存都在安装目录内，修复期间禁止另一窗口同时修复；盘内程序仍运行时要求先退出。断网或取消时不启动，已下载完的校验包可供下次重试；中断复制会在下次启动重新修复。错误的本地 ZIP 会明确提示移走或重新下载。恢复主程序前核对包版本与配置一致，不用旧版覆盖新版。
+
+启动配置/脚本本身缺失、盘只读、空间不足等情况需按提示处理或重新解压完整包，不宣称可自行修复任意文件。环境补齐不包含模型权重、账号或密钥；模型连接继续使用原生界面。本轮启动器增强已部署到本地，并作为 `windows-x64-online-starter.zip` 小型在线启动包单独交付；GitHub 原 `brand.2` 完整 ZIP 保持原内容。在线启动包在首次运行时获取同一已发布、固定校验值的完整 ZIP，不包含用户数据和凭据。
+
+维护者使用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\bairui\package-starter.ps1 -OutputDirectory <盘内输出目录>` 生成在线启动包及校验文件。该脚本只复制明确列出的运行入口和许可文件。升级主程序版本时必须同步维护恢复包版本、下载地址、大小和 SHA-256；不得只更新 `settings.json`。
+
+命令行直接调用 `start.ps1` 遇到缺件会输出修复指引并退出；加 `-Interactive` 可显示补齐对话框，避免自动化命令被弹窗阻塞。
 
 ```powershell
 # 从安装目录启动 Web；默认项目是安装所在的整块 U 盘根目录。

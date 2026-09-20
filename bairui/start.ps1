@@ -4,24 +4,18 @@ param(
     [ValidateSet('Web', 'TUI')]
     [string]$Mode = 'Web',
     [string]$Project,
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$Interactive
 )
 
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($Root)) { $Root = Split-Path -Parent $PSScriptRoot }
+# Prepare portable temporary paths before probing or repairing any executables.
+. (Join-Path $PSScriptRoot 'env.ps1') -Root $Root
+. (Join-Path $PSScriptRoot 'environment.ps1')
+Assert-BairuiEnvironment -Root $Root -Interactive:$Interactive
 . (Join-Path $PSScriptRoot 'launch-env.ps1') -Root $Root
 . (Join-Path $PSScriptRoot 'instance-lock.ps1')
-foreach ($bairuiRequiredFile in @(
-    $bairuiExecutable,
-    (Join-Path $bairuiInstallRoot 'runtime\bun\bun.exe'),
-    (Join-Path $bairuiInstallRoot 'runtime\node\node.exe'),
-    (Join-Path $bairuiInstallRoot 'runtime\git\cmd\git.exe'),
-    (Join-Path $bairuiInstallRoot 'runtime\git\bin\bash.exe')
-)) {
-    if (-not (Test-Path -LiteralPath $bairuiRequiredFile -PathType Leaf)) {
-        throw "Required portable file is missing: $bairuiRequiredFile"
-    }
-}
 
 if ([string]::IsNullOrWhiteSpace($Project)) {
     $Project = [IO.Path]::GetPathRoot($bairuiInstallRoot)

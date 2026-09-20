@@ -16,6 +16,12 @@ BAIRUI 是基于 [OpenCode](https://github.com/anomalyco/opencode) 开发的个�
 
 ## 运行 Windows 便携版
 
+普通用户从 [预发布页面](https://github.com/LUTAO581314/xingyao-xuanji/releases/tag/v1.18.31-bairui-brand.2) 下载 Windows 便携 ZIP，完整解压后双击 `启动BAIRUI.cmd` 即可，依赖已随完整包提供。模型选择和连接在原生 Web 界面完成。
+
+也可以下载 [Windows 在线启动包](https://github.com/LUTAO581314/xingyao-xuanji/releases/download/v1.18.31-bairui-brand.2/BAIRUI-1.18.31-bairui-brand.2-windows-x64-online-starter.zip)：解压后双击，按中文提示补齐环境再自动启动。首次需要联网下载约 299 MB；聊天记录与配置保存在安装目录内。环境已齐全时不下载。
+
+在线启动包和当前本地安装已包含环境检查增强。此前发布的完整 `brand.2` ZIP 保持原内容。在线启动包适合新安装；已有安装升级时保留原 `settings.json` 及数据目录，仅更新对应启动脚本。
+
 便携安装由启动脚本、对应版本二进制和盘内工具共同组成；单独克隆本源码仓库还不能直接运行便携版。完整目录和准备步骤见 [便携启动说明](bairui/README.md) 与 [发布指南](docs/bairui-release.md)。
 
 例如安装根目录为 `F:\OpenCode`，准备好 `releases\1.18.31-bairui-brand.2\opencode.exe` 和 `runtime` 后，在安装根目录执行：

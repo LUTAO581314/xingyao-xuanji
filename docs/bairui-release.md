@@ -22,6 +22,10 @@
 
 ## Windows 便携安装
 
+2026-09-20 启动器后续增强：双击入口先检查主程序、Bun、Node/npm、Git/Bash；缺失或无法运行时中文提示补齐，从固定哈希的已发布包恢复后继续启动。源码与本地安装已更新，新增 `windows-x64-online-starter.zip` 单独交付新入口；已发布的 `brand.2` 完整 ZIP 保持原内容，不移动版本标签。恢复代码、固定包元数据和桌面入口纳入本地发行校验清单。Windows PowerShell 5.1 中文脚本统一使用 UTF-8 BOM。
+
+恢复验收脚本 `bairui/test-environment.ps1` 使用实际发行 ZIP，在独立可写目录中验证缺件、坏包拒绝、并发锁、真实恢复、资料保留和中断重试；不得把用户安装目录作为测试目录。
+
 安装根目录是包含 `bairui`、`runtime`、`releases`、`data`、`config`、`cache` 和 `state` 的目录，例如 `F:\OpenCode`。源码目录 `F:\OpenCode\product` 不是便携安装根目录。
 
 ```text

@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$Root,
     [string]$Release,
@@ -42,6 +42,9 @@ $bairuiRelativeFiles = @(
     'bairui/bairui.cmd',
     'bairui/cli.ps1',
     'bairui/env.ps1',
+    'bairui/environment.ps1',
+    'bairui/environment-release.json',
+    'bairui/desktop-start.ps1',
     'bairui/instance-lock.ps1',
     'bairui/launch-env.ps1',
     'bairui/settings.json',
