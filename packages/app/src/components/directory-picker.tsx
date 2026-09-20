@@ -4,7 +4,7 @@ import { usePlatform } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { lazy } from "solid-js"
 import { DialogSelectDirectory } from "./dialog-select-directory"
-import { directoryPickerKind } from "./directory-picker-policy"
+import { directoryPickerKind, directoryPickerUsesV2 } from "./directory-picker-policy"
 
 const DialogSelectDirectoryV2 = lazy(() =>
   import("./dialog-select-directory-v2").then((module) => ({ default: module.DialogSelectDirectoryV2 })),
@@ -36,7 +36,10 @@ export function useDirectoryPicker() {
     const cancel = () => {
       if (!selected) input.onSelect(null)
     }
-    if (platform.platform === "desktop" && settings.general.newLayoutDesigns()) {
+    // The web renderer cannot open the host OS native picker. Keep it on the
+    // server-backed picker even with the legacy visual layout so local drives
+    // and folder creation remain available.
+    if (directoryPickerUsesV2(platform.platform, settings.general.newLayoutDesigns())) {
       dialog.show(() => <DialogSelectDirectoryV2 {...input} onSelect={onSelect} />, cancel)
       return
     }

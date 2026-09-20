@@ -20,6 +20,42 @@
   gap: 2px;
 }
 
+.directory-picker-v2-drives {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+}
+
+.directory-picker-v2-control-label {
+  flex-shrink: 0;
+  margin-right: 2px;
+  color: var(--v2-text-text-muted);
+  font-size: 12px;
+}
+
+.directory-picker-v2-create-folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.directory-picker-v2-create-folder > *:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.directory-picker-v2-create-error {
+  overflow: hidden;
+  flex-shrink: 0;
+  color: var(--v2-text-text-danger);
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .directory-picker-v2-suggestions {
   position: absolute;
   z-index: 20;

@@ -76,6 +76,7 @@ foreach ($bairuiKey in @('OPENCODE_CONFIG', 'OPENCODE_CONFIG_CONTENT', 'OPENCODE
 }
 
 $bairuiToolPaths = @(
+    (Join-Path $bairuiRoot 'bairui'),
     (Join-Path $bairuiRuntime 'bun'),
     (Join-Path $bairuiRuntime 'node'),
     (Join-Path $bairuiRuntime 'git\cmd'),

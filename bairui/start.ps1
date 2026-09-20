@@ -9,31 +9,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($Root)) { $Root = Split-Path -Parent $PSScriptRoot }
-$bairuiInstallRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Root)
-. (Join-Path $PSScriptRoot 'env.ps1') -Root $bairuiInstallRoot
-
-$bairuiSettingsPath = Join-Path $PSScriptRoot 'settings.json'
-$bairuiSettings = Get-Content -LiteralPath $bairuiSettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-$bairuiName = '星杳'
-if ($null -ne $bairuiSettings.assistantName) {
-    if ($bairuiSettings.assistantName -isnot [string]) {
-        throw 'settings.json assistantName must be a string.'
-    }
-    if (-not [string]::IsNullOrWhiteSpace($bairuiSettings.assistantName)) {
-        $bairuiName = $bairuiSettings.assistantName.Trim()
-    }
-}
-$bairuiPromptEnabled = $true
-if ($null -ne $bairuiSettings.promptEnabled) {
-    if ($bairuiSettings.promptEnabled -isnot [bool]) {
-        throw 'settings.json promptEnabled must be true or false.'
-    }
-    $bairuiPromptEnabled = $bairuiSettings.promptEnabled
-}
-$env:BAIRUI_NAME = $bairuiName
-$env:BAIRUI_PROMPT_DISABLED = (-not $bairuiPromptEnabled).ToString().ToLowerInvariant()
-
-$bairuiExecutable = Join-Path $bairuiInstallRoot 'releases\1.18.31-bairui-prompt.1\opencode.exe'
+. (Join-Path $PSScriptRoot 'launch-env.ps1') -Root $Root
+. (Join-Path $PSScriptRoot 'instance-lock.ps1')
 foreach ($bairuiRequiredFile in @(
     $bairuiExecutable,
     (Join-Path $bairuiInstallRoot 'runtime\bun\bun.exe'),
@@ -60,23 +37,8 @@ if (-not (Test-Path -LiteralPath $bairuiProjectPath -PathType Container)) {
     New-Item -ItemType Directory -Path $bairuiProjectPath -ErrorAction Stop | Out-Null
 }
 
-if ($Mode -eq 'TUI') {
-    Push-Location -LiteralPath $bairuiProjectPath
-    try {
-        & $bairuiExecutable
-        $bairuiExitCode = $LASTEXITCODE
-    }
-    finally {
-        Pop-Location
-    }
-    if ($bairuiExitCode -ne 0) {
-        throw "BAIRUI TUI exited with code $bairuiExitCode."
-    }
-    return
-}
-
 function Get-BairuiListener {
-    @(Get-NetTCPConnection -ErrorAction Stop | Where-Object { $_.State -eq 'Listen' -and $_.LocalPort -eq 4098 })
+    @(Get-NetTCPConnection -ErrorAction Stop | Where-Object { $_.State -eq 'Listen' -and $_.LocalPort -eq $bairuiWebPort })
 }
 
 function Assert-BairuiListener {
@@ -85,10 +47,10 @@ function Assert-BairuiListener {
     foreach ($bairuiListener in $Listeners) {
         $bairuiOwner = Get-Process -Id $bairuiListener.OwningProcess -ErrorAction SilentlyContinue
         if ($null -eq $bairuiOwner -or [string]::IsNullOrWhiteSpace($bairuiOwner.Path) -or $bairuiOwner.Path -ne $bairuiExecutable) {
-            throw "Port 4098 is occupied by another process (PID $($bairuiListener.OwningProcess)). No process was stopped."
+            throw "Port $bairuiWebPort is occupied by another process (PID $($bairuiListener.OwningProcess)). No process was stopped."
         }
         if ($bairuiListener.LocalAddress -ne '127.0.0.1') {
-            throw 'This executable already uses port 4098 on a different address. No process was stopped.'
+            throw "This executable already uses port $bairuiWebPort on a different address. No process was stopped."
         }
     }
 }
@@ -129,54 +91,101 @@ function Test-BairuiPaths {
             return $false
         }
         if (-not [string]::Equals($bairuiActualPath, $bairuiExpectedPath, [StringComparison]::OrdinalIgnoreCase)) {
-            throw "Port 4098 uses an unexpected $bairuiPathKey path: $bairuiActualPath (expected $bairuiExpectedPath). No process was stopped."
+            throw "Port $bairuiWebPort uses an unexpected $bairuiPathKey path: $bairuiActualPath (expected $bairuiExpectedPath). No process was stopped."
         }
     }
     return $true
 }
 
-$bairuiUrl = 'http://127.0.0.1:4098'
-$bairuiListeners = @(Get-BairuiListener)
-if ($bairuiListeners.Count -gt 0) {
-    Assert-BairuiListener -Listeners $bairuiListeners
-    if (-not (Test-BairuiPaths)) {
-        throw 'The running service could not verify its portable paths through /path. No process was stopped.'
-    }
-    Write-Output "BAIRUI is already running: $bairuiUrl"
-    Write-Output 'The running process keeps its existing settings; changes apply on its next launch.'
-    if (-not $NoBrowser) { Start-Process -FilePath $bairuiUrl | Out-Null }
-    return
-}
+$bairuiUrl = "http://127.0.0.1:$bairuiWebPort"
+$bairuiLockAcquired = $false
+$bairuiKeepLock = $false
+try {
+    $bairuiLockAcquired = [bool](Acquire-BairuiInstanceLock -Mode $Mode -OwnerPid $PID)
 
-$bairuiLogDirectory = Join-Path $bairuiInstallRoot 'logs\bairui'
-New-Item -ItemType Directory -Path $bairuiLogDirectory -Force | Out-Null
-$bairuiLogStamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + $PID
-$bairuiStdout = Join-Path $bairuiLogDirectory ($bairuiLogStamp + '.stdout.log')
-$bairuiStderr = Join-Path $bairuiLogDirectory ($bairuiLogStamp + '.stderr.log')
-
-# The native web command opens a browser itself. serve uses the same HTTP server
-# and lets this launcher honor -NoBrowser.
-$bairuiProcess = Start-Process -FilePath $bairuiExecutable `
-    -ArgumentList @('serve', '--hostname', '127.0.0.1', '--port', '4098') `
-    -WorkingDirectory $bairuiProjectPath -WindowStyle Hidden -PassThru `
-    -RedirectStandardOutput $bairuiStdout -RedirectStandardError $bairuiStderr
-
-$bairuiDeadline = (Get-Date).AddSeconds(30)
-while ((Get-Date) -lt $bairuiDeadline) {
-    $bairuiProcess.Refresh()
-    if ($bairuiProcess.HasExited) {
-        throw "BAIRUI exited with code $($bairuiProcess.ExitCode). See $bairuiStderr"
-    }
     $bairuiListeners = @(Get-BairuiListener)
+    if (-not $bairuiLockAcquired) {
+        if ($bairuiListeners.Count -eq 0) {
+            throw 'The BAIRUI Web lock is active, but its listener is not available yet. Try again shortly.'
+        }
+        Assert-BairuiListener -Listeners $bairuiListeners
+        if (-not (Test-BairuiPaths)) {
+            throw 'The running service could not verify its portable paths through /path. No process was stopped.'
+        }
+        Write-Output "BAIRUI is already running: $bairuiUrl"
+        Write-Output 'The running process keeps its existing settings; changes apply on its next launch.'
+        if (-not $NoBrowser) { Start-Process -FilePath $bairuiUrl | Out-Null }
+        return
+    }
+
+    if ($Mode -eq 'TUI') {
+        if ($bairuiListeners.Count -gt 0) {
+            throw "BAIRUI Web is already listening on $bairuiUrl. Stop it before starting TUI mode."
+        }
+        Push-Location -LiteralPath $bairuiProjectPath
+        try {
+            & $bairuiExecutable
+            $bairuiExitCode = $LASTEXITCODE
+        }
+        finally {
+            Pop-Location
+        }
+        if ($bairuiExitCode -ne 0) {
+            throw "BAIRUI TUI exited with code $bairuiExitCode."
+        }
+        return
+    }
+
     if ($bairuiListeners.Count -gt 0) {
         Assert-BairuiListener -Listeners $bairuiListeners
-        if (Test-BairuiPaths) {
-            Write-Output "BAIRUI is ready: $bairuiUrl (PID $($bairuiListeners[0].OwningProcess))"
-            Write-Output "Logs: $bairuiLogDirectory"
-            if (-not $NoBrowser) { Start-Process -FilePath $bairuiUrl | Out-Null }
-            return
+        if (-not (Test-BairuiPaths)) {
+            throw "The running service could not verify its portable paths through /path. No process was stopped."
         }
+        Update-BairuiInstanceLockOwner -OwnerPid ([int]$bairuiListeners[0].OwningProcess)
+        $bairuiKeepLock = $true
+        Write-Output "BAIRUI is already running: $bairuiUrl"
+        Write-Output 'The running process keeps its existing settings; changes apply on its next launch.'
+        if (-not $NoBrowser) { Start-Process -FilePath $bairuiUrl | Out-Null }
+        return
     }
-    Start-Sleep -Milliseconds 500
+
+    $bairuiLogDirectory = Join-Path $bairuiInstallRoot 'logs\bairui'
+    New-Item -ItemType Directory -Path $bairuiLogDirectory -Force | Out-Null
+    $bairuiLogStamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + $PID
+    $bairuiStdout = Join-Path $bairuiLogDirectory ($bairuiLogStamp + '.stdout.log')
+    $bairuiStderr = Join-Path $bairuiLogDirectory ($bairuiLogStamp + '.stderr.log')
+
+    # The native web command opens a browser itself. serve uses the same HTTP server
+    # and lets this launcher honor -NoBrowser.
+    $bairuiProcess = Start-Process -FilePath $bairuiExecutable `
+        -ArgumentList @('serve', '--hostname', '127.0.0.1', '--port', "$bairuiWebPort") `
+        -WorkingDirectory $bairuiProjectPath -WindowStyle Hidden -PassThru `
+        -RedirectStandardOutput $bairuiStdout -RedirectStandardError $bairuiStderr
+    Update-BairuiInstanceLockOwner -OwnerPid ([int]$bairuiProcess.Id)
+    $bairuiKeepLock = $true
+
+    $bairuiDeadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $bairuiDeadline) {
+        $bairuiProcess.Refresh()
+        if ($bairuiProcess.HasExited) {
+            throw "BAIRUI exited with code $($bairuiProcess.ExitCode). See $bairuiStderr"
+        }
+        $bairuiListeners = @(Get-BairuiListener)
+        if ($bairuiListeners.Count -gt 0) {
+            Assert-BairuiListener -Listeners $bairuiListeners
+            if (Test-BairuiPaths) {
+                Write-Output "BAIRUI is ready: $bairuiUrl (PID $($bairuiListeners[0].OwningProcess))"
+                Write-Output "Logs: $bairuiLogDirectory"
+                if (-not $NoBrowser) { Start-Process -FilePath $bairuiUrl | Out-Null }
+                return
+            }
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    throw "BAIRUI did not verify its portable paths through /path within 30 seconds. The process was left running; see $bairuiStderr"
 }
-throw "BAIRUI did not verify its portable paths through /path within 30 seconds. The process was left running; see $bairuiStderr"
+finally {
+    if ($bairuiLockAcquired -and -not $bairuiKeepLock) {
+        Remove-BairuiInstanceLock -ExpectedOwnerPids @($PID)
+    }
+}

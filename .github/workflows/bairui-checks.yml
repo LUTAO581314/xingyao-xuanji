@@ -1,0 +1,41 @@
+name: BAIRUI checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: "1.3.14"
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Check backend types
+        working-directory: packages/opencode
+        run: bun run typecheck
+      - name: Check root HTTP API and assistant prompts
+        working-directory: packages/opencode
+        run: bun test --timeout 30000 test/server/httpapi-global.test.ts test/session/llm-request.test.ts
+      - name: Check directory picker and translations
+        working-directory: packages/app
+        run: bun test --conditions=solid --preload ./happydom.ts --timeout 30000 ./src/components/directory-picker.test.ts ./src/components/directory-picker-domain.test.ts ./src/i18n/parity.test.ts
+      - name: Check TUI agent presentation
+        working-directory: packages/tui
+        run: bun test --timeout 30000 test/util/presentation.test.ts

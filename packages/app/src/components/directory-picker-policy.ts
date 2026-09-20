@@ -5,3 +5,7 @@ export function directoryPickerKind(platform: Platform["platform"], server: Serv
   if (platform === "desktop" && ServerConnection.local(server)) return "native" as const
   return "server" as const
 }
+
+export function directoryPickerUsesV2(platform: Platform["platform"], newLayoutDesigns: boolean) {
+  return platform === "web" || newLayoutDesigns
+}

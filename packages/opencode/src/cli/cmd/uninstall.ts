@@ -2,6 +2,7 @@ import type { Argv } from "yargs"
 import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
 import { Installation } from "../../installation"
+import { InstallationChannel } from "@opencode-ai/core/installation/version"
 import { Global } from "@opencode-ai/core/global"
 import fs from "fs/promises"
 import path from "path"
@@ -24,7 +25,7 @@ interface RemovalTargets {
 
 export const UninstallCommand = {
   command: "uninstall",
-  describe: "uninstall opencode and remove all related files",
+  describe: "uninstall BAIRUI and remove all related files",
   builder: (yargs: Argv) =>
     yargs
       .option("keep-config", {
@@ -52,10 +53,15 @@ export const UninstallCommand = {
       }),
 
   handler: async (args: UninstallArgs) => {
+    if (InstallationChannel === "bairui") {
+      UI.error("BAIRUI is a portable USB release. Use bairui/register-command.ps1 -Remove to remove the command registration. Manage USB release files directly; the upstream uninstaller cannot safely remove shared data.")
+      process.exitCode = 1
+      return
+    }
     UI.empty()
     UI.println(UI.logo("  "))
     UI.empty()
-    prompts.intro("Uninstall OpenCode")
+    prompts.intro("Uninstall BAIRUI")
 
     const method = await Installation.method()
     prompts.log.info(`Installation method: ${method}`)
@@ -229,7 +235,7 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
   }
 
   UI.empty()
-  prompts.log.success("Thank you for using OpenCode!")
+  prompts.log.success("Thank you for using BAIRUI!")
 }
 
 async function getShellConfigFile(): Promise<string | null> {

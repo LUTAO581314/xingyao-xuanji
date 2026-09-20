@@ -26,6 +26,7 @@ import {
   displayPickerPath,
   pickerParent,
   pickerRoot,
+  localDirectoryAccess,
 } from "./directory-picker-domain"
 import "./dialog-select-directory-v2.css"
 import { DividerV2 } from "@opencode-ai/ui/v2/divider-v2"
@@ -58,6 +59,9 @@ export function DialogSelectDirectoryV2(props: DialogSelectDirectoryV2Props) {
   const [loading, setLoading] = createSignal(false)
   const [error, setError] = createSignal(false)
   const [rootValid, setRootValid] = createSignal(false)
+  const [folderName, setFolderName] = createSignal("")
+  const [folderError, setFolderError] = createSignal("")
+  const [creatingFolder, setCreatingFolder] = createSignal(false)
   const listings = new Map<string, Promise<Array<{ name: string; type: "file" | "directory" }> | undefined>>()
   const loads = createPriorityTaskQueue<Array<{ name: string; type: "file" | "directory" }> | undefined>(3)
   const advanced = new Set<string>()
@@ -87,6 +91,9 @@ export function DialogSelectDirectoryV2(props: DialogSelectDirectoryV2Props) {
       fallbackPath()?.home ||
       fallbackPath()?.directory,
   )
+  const [drives] = createResource(async () => {
+    return (await localDirectoryAccess(sdk))?.drives ?? []
+  })
   const search = createDirectorySearch({ sdk, home, base: () => root() || start() })
   const [suggestions] = createResource(input, async (value) => {
     const cleaned = cleanPickerInput(value)
@@ -127,15 +134,21 @@ export function DialogSelectDirectoryV2(props: DialogSelectDirectoryV2Props) {
       existing ??
       loads.schedule(`${generation}:${key}`, eager ? "background" : "user", () => {
         if (!activeTreeNavigation(generation, navigation)) return Promise.resolve(undefined)
-        return sdk.api.file
-          .list({ location: { directory: absolute } })
-          .then((result) =>
-            result.data.map((entry) => ({
-              name: getFilename(entry.path.replace(/[\\/]+$/, "")),
+        return (async () => {
+          const local = await localDirectoryAccess(sdk)
+          if (local) {
+            const result = await local.api.directories({ path: absolute }, { throwOnError: true })
+            return result.data.entries.map((entry) => ({
+              name: entry.name || getFilename(entry.path.replace(/[\\/]+$/, "")),
               type: entry.type,
-            })),
-          )
-          .catch(() => undefined)
+            }))
+          }
+          const result = await sdk.api.file.list({ location: { directory: absolute } })
+          return result.data.map((entry) => ({
+            name: getFilename(entry.path.replace(/[\\/]+$/, "")),
+            type: entry.type,
+          }))
+        })().catch(() => undefined)
       })
     listings.set(key, request)
     const nodes = await request
@@ -170,6 +183,29 @@ export function DialogSelectDirectoryV2(props: DialogSelectDirectoryV2Props) {
     if (!activeTreeNavigation(token, navigation)) return
     setRootValid(valid)
     setLoading(false)
+  }
+
+  async function createFolder() {
+    const name = cleanPickerInput(folderName())
+    if (!name) {
+      setFolderError(language.t("dialog.directory.invalidFolderName"))
+      return
+    }
+    if (!root()) return
+    setCreatingFolder(true)
+    setFolderError("")
+    try {
+      const local = await localDirectoryAccess(sdk)
+      if (!local) throw new Error(language.t("dialog.directory.createError"))
+      const result = await local.api.directories2.create({ parent: root(), name }, { throwOnError: true })
+      setFolderName("")
+      await navigate(result.data.path)
+    } catch (cause) {
+      const value = cause as { data?: { message?: string }; message?: string }
+      setFolderError(value?.data?.message || value?.message || language.t("dialog.directory.createError"))
+    } finally {
+      setCreatingFolder(false)
+    }
   }
 
   function complete() {
@@ -344,6 +380,50 @@ export function DialogSelectDirectoryV2(props: DialogSelectDirectoryV2Props) {
             </div>
           </Show>
         </div>
+        <Show when={(drives() ?? []).length > 0}>
+          <div class="directory-picker-v2-drives" aria-label={language.t("dialog.directory.drives")}>
+            <span class="directory-picker-v2-control-label">{language.t("dialog.directory.drives")}</span>
+            <For each={drives()}>
+              {(drive) => (
+                <ButtonV2 size="small" variant="ghost" onClick={() => void navigate(drive.path)}>
+                  {drive.name}
+                </ButtonV2>
+              )}
+            </For>
+          </div>
+        </Show>
+        <Show when={policy.action === "directory"}>
+          <div class="directory-picker-v2-create-folder">
+            <TextInputV2
+              value={folderName()}
+              placeholder={language.t("dialog.directory.folderName")}
+              aria-label={language.t("dialog.directory.folderName")}
+              invalid={!!folderError()}
+              onInput={(event) => {
+                setFolderName(cleanPickerInput(event.currentTarget.value))
+                setFolderError("")
+              }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return
+                event.preventDefault()
+                void createFolder()
+              }}
+            />
+            <ButtonV2
+              size="small"
+              variant="outline"
+              disabled={!root() || !folderName() || creatingFolder()}
+              onClick={() => void createFolder()}
+            >
+              {creatingFolder() ? language.t("common.loading") : language.t("dialog.directory.createFolder")}
+            </ButtonV2>
+          </div>
+          <Show when={folderError()}>
+            <div class="directory-picker-v2-create-error" role="alert">
+              {folderError()}
+            </div>
+          </Show>
+        </Show>
         <div
           class="directory-picker-v2-browser"
           ref={container}

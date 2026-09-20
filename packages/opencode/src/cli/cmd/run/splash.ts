@@ -181,7 +181,7 @@ function build(input: SplashWriterInput, kind: "entry" | "exit", ctx: Scrollback
   let height = 1
 
   if (kind === "entry") {
-    const mark = go.right.slice(1)
+    const mark = go.left.slice(1)
     const top = 1
     const body_left = (mark[0]?.length ?? 0) + 2
 
@@ -194,7 +194,7 @@ function build(input: SplashWriterInput, kind: "entry" | "exit", ctx: Scrollback
       })
     }
 
-    push(lines, body_left, top, "OpenCode", right, undefined, TextAttributes.BOLD)
+    push(lines, body_left, top, "BAIRUI", right, undefined, TextAttributes.BOLD)
     if (input.detail) {
       push(
         lines,
@@ -209,7 +209,7 @@ function build(input: SplashWriterInput, kind: "entry" | "exit", ctx: Scrollback
   }
 
   if (kind === "exit") {
-    const mark = go.right.slice(1)
+    const mark = go.left.slice(1)
     const top = 1
     const body_left = (mark[0]?.length ?? 0) + 2
     const session = "Session  "
@@ -234,7 +234,7 @@ function build(input: SplashWriterInput, kind: "entry" | "exit", ctx: Scrollback
       lines,
       body_left + label.length,
       top + 1,
-      `opencode --mini -s ${meta.session_id}`,
+      `bairui --mini -s ${meta.session_id}`,
       right,
       undefined,
       TextAttributes.BOLD,

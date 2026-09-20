@@ -1,4 +1,5 @@
 ﻿{
   "assistantName": "星杳",
-  "promptEnabled": true
+  "promptEnabled": true,
+  "release": "1.18.31-bairui-brand.2"
 }

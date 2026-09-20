@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test"
+import { createSdkForServer } from "@/utils/server"
 import {
   absoluteTreePath,
   activeTreeNavigation,
@@ -20,7 +21,41 @@ import {
   pickerParent,
   pickerRoot,
   pickerAbsoluteInput,
+  localDirectoryAccess,
 } from "./directory-picker-domain"
+
+test("uses the authenticated generated root SDK for the local directory extension", async () => {
+  const requests: string[] = []
+  const client = createSdkForServer({
+    server: { url: "http://bairui.test", password: "test-password" },
+    fetch: (async (request: Request) => {
+      requests.push(new URL(request.url).pathname)
+      expect(request.headers.get("Authorization")).toBe(`Basic ${btoa("opencode:test-password")}`)
+      if (request.url.endsWith("/local/drives")) return Response.json([{ name: "F:", path: "F:\\" }])
+      return Response.json({ path: "F:\\", entries: [{ name: "Projects", path: "F:\\Projects", type: "directory" }] })
+    }) as typeof fetch,
+  })
+  const sdk = { client, api: {} } as Parameters<typeof localDirectoryAccess>[0]
+  const access = await localDirectoryAccess(sdk)
+  expect(access?.drives).toEqual([{ name: "F:", path: "F:\\" }])
+  const search = createDirectorySearch({ sdk, home: () => "F:/", base: () => "F:/" })
+  expect(await search("F:\\")).toEqual(["F:/Projects"])
+  expect(requests).toEqual(["/local/drives", "/local/directories"])
+})
+
+test("falls back to the native file API when an upstream server has no local extension", async () => {
+  const client = createSdkForServer({
+    server: { url: "http://upstream.test" },
+    fetch: (async () => new Response("Not found", { status: 404 })) as typeof fetch,
+  })
+  const sdk = {
+    client,
+    api: { file: { list: () => Promise.resolve({ data: [{ path: "Projects/", type: "directory" }] }) } },
+  } as unknown as Parameters<typeof localDirectoryAccess>[0]
+  expect(await localDirectoryAccess(sdk)).toBeUndefined()
+  const search = createDirectorySearch({ sdk, home: () => "F:/", base: () => "F:/" })
+  expect(await search("F:\\")).toEqual(["F:/Projects"])
+})
 
 test("maps server directory entries into Pierre paths", () => {
   expect(
@@ -192,6 +227,40 @@ test("lists the default directory when empty search is unsupported", async () =>
   expect(results).toHaveLength(60)
   expect(results.at(-1)).toBe("/home/luke/project-59")
   expect(calls).toEqual(["/home/luke"])
+})
+
+test("uses absolute local API entries without joining the drive twice", async () => {
+  const calls: string[] = []
+  const sdk = {
+    protocol: Promise.resolve("v2" as const),
+    client: {
+      local: {
+        drives: () => Promise.resolve({ data: [{ name: "F:", path: "F:/" }] }),
+        directories: (input: { path: string }) => {
+          calls.push(input.path)
+          return Promise.resolve({
+            data: {
+              path: input.path,
+              entries: [
+                { name: "Projects", path: "F:\\Projects", type: "directory" as const },
+                { name: "notes.txt", path: "F:\\notes.txt", type: "file" as const },
+              ],
+            },
+          })
+        },
+      },
+    },
+    api: {
+      file: {
+        find: () => Promise.resolve({ data: [] }),
+        list: () => Promise.reject(new Error("legacy file API should not run")),
+      },
+    },
+  } as unknown as Parameters<typeof createDirectorySearch>[0]["sdk"]
+  const search = createDirectorySearch({ sdk, home: () => "C:/Users/luke", base: () => "F:/" })
+
+  expect(await search("F:\\")).toEqual(["F:/Projects"])
+  expect(calls).toEqual(["F:/"])
 })
 
 test("matches the default directory listing when typed search is unsupported", async () => {

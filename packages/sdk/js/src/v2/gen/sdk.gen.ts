@@ -90,6 +90,12 @@ import type {
   GlobalUpgradeResponses,
   InstanceDisposeErrors,
   InstanceDisposeResponses,
+  LocalDirectoriesCreateErrors,
+  LocalDirectoriesCreateResponses,
+  LocalDirectoriesErrors,
+  LocalDirectoriesResponses,
+  LocalDrivesErrors,
+  LocalDrivesResponses,
   LocationRef,
   LspStatusErrors,
   LspStatusResponses,
@@ -1379,6 +1385,85 @@ export class Global extends HeyApiClient {
   private _config?: Config
   get config(): Config {
     return (this._config ??= new Config({ client: this.client }))
+  }
+}
+
+export class Directories extends HeyApiClient {
+  /**
+   * Create a local directory
+   *
+   * Create one directory below an existing local directory.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      parent?: string
+      name?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "body", key: "parent" },
+            { in: "body", key: "name" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      LocalDirectoriesCreateResponses,
+      LocalDirectoriesCreateErrors,
+      ThrowOnError
+    >({
+      url: "/local/directories",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Local extends HeyApiClient {
+  /**
+   * List local drives
+   *
+   * List the local drives available to the BAIRUI process.
+   */
+  public drives<ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>) {
+    return (options?.client ?? this.client).get<LocalDrivesResponses, LocalDrivesErrors, ThrowOnError>({
+      url: "/local/drives",
+      ...options,
+    })
+  }
+
+  /**
+   * List a local directory
+   *
+   * List files and directories at an absolute local path.
+   */
+  public directories<ThrowOnError extends boolean = false>(
+    parameters: {
+      path: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "path" }] }])
+    return (options?.client ?? this.client).get<LocalDirectoriesResponses, LocalDirectoriesErrors, ThrowOnError>({
+      url: "/local/directories",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _directories?: Directories
+  get directories2(): Directories {
+    return (this._directories ??= new Directories({ client: this.client }))
   }
 }
 
@@ -7100,6 +7185,11 @@ export class OpencodeClient extends HeyApiClient {
   private _global?: Global
   get global(): Global {
     return (this._global ??= new Global({ client: this.client }))
+  }
+
+  private _local?: Local
+  get local(): Local {
+    return (this._local ??= new Local({ client: this.client }))
   }
 
   private _event?: Event

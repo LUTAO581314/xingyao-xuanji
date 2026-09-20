@@ -2032,6 +2032,15 @@ export type Config = {
   }
 }
 
+export type LocalDirectoryError = {
+  name: "LocalDirectoryError"
+  data: {
+    message: string
+    path: string
+    code?: string
+  }
+}
+
 export type Model = {
   id: string
   providerID: string
@@ -7388,6 +7397,100 @@ export type GlobalUpgradeResponses = {
 }
 
 export type GlobalUpgradeResponse = GlobalUpgradeResponses[keyof GlobalUpgradeResponses]
+
+export type LocalDrivesData = {
+  body?: never
+  path?: never
+  query?: never
+  url: "/local/drives"
+}
+
+export type LocalDrivesErrors = {
+  /**
+   * LocalDirectoryError | InvalidRequestError
+   */
+  400: LocalDirectoryError | InvalidRequestError
+}
+
+export type LocalDrivesError = LocalDrivesErrors[keyof LocalDrivesErrors]
+
+export type LocalDrivesResponses = {
+  /**
+   * Available local drives
+   */
+  200: Array<{
+    name: string
+    path: string
+  }>
+}
+
+export type LocalDrivesResponse = LocalDrivesResponses[keyof LocalDrivesResponses]
+
+export type LocalDirectoriesData = {
+  body?: never
+  path?: never
+  query: {
+    path: string
+  }
+  url: "/local/directories"
+}
+
+export type LocalDirectoriesErrors = {
+  /**
+   * LocalDirectoryError | InvalidRequestError
+   */
+  400: LocalDirectoryError | InvalidRequestError
+}
+
+export type LocalDirectoriesError = LocalDirectoriesErrors[keyof LocalDirectoriesErrors]
+
+export type LocalDirectoriesResponses = {
+  /**
+   * Local directory listing
+   */
+  200: {
+    path: string
+    entries: Array<{
+      name: string
+      path: string
+      type: "file" | "directory"
+    }>
+  }
+}
+
+export type LocalDirectoriesResponse = LocalDirectoriesResponses[keyof LocalDirectoriesResponses]
+
+export type LocalDirectoriesCreateData = {
+  body?: {
+    parent: string
+    name: string
+  }
+  path?: never
+  query?: never
+  url: "/local/directories"
+}
+
+export type LocalDirectoriesCreateErrors = {
+  /**
+   * LocalDirectoryError | InvalidRequestError
+   */
+  400: LocalDirectoryError | InvalidRequestError
+}
+
+export type LocalDirectoriesCreateError = LocalDirectoriesCreateErrors[keyof LocalDirectoriesCreateErrors]
+
+export type LocalDirectoriesCreateResponses = {
+  /**
+   * Local directory created
+   */
+  200: {
+    name: string
+    path: string
+    type: "file" | "directory"
+  }
+}
+
+export type LocalDirectoriesCreateResponse = LocalDirectoriesCreateResponses[keyof LocalDirectoriesCreateResponses]
 
 export type EventSubscribeData = {
   body?: never

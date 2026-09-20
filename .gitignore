@@ -32,3 +32,13 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+
+# Portable installation state belongs on the USB drive, outside source control.
+/runtime/
+/releases/
+/data/
+/config/
+/cache/
+/state/
+/workspace/
+/bairui/bairui-integrity.json

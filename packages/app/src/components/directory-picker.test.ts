@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { directoryPickerKind } from "./directory-picker-policy"
+import { directoryPickerKind, directoryPickerUsesV2 } from "./directory-picker-policy"
 
 const local = {
   type: "sidecar",
@@ -17,5 +17,16 @@ describe("directoryPickerKind", () => {
     expect(directoryPickerKind("desktop", local)).toBe("native")
     expect(directoryPickerKind("desktop", remote)).toBe("server")
     expect(directoryPickerKind("web", local)).toBe("server")
+  })
+})
+
+describe("directoryPickerUsesV2", () => {
+  test("keeps the web picker available with the legacy visual layout", () => {
+    expect(directoryPickerUsesV2("web", false)).toBe(true)
+  })
+
+  test("follows the layout setting on desktop and other renderers", () => {
+    expect(directoryPickerUsesV2("desktop", false)).toBe(false)
+    expect(directoryPickerUsesV2("desktop", true)).toBe(true)
   })
 })

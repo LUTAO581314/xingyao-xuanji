@@ -1,8 +1,9 @@
 - To regenerate the legacy JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
 - After changing the public Protocol or Server `HttpApi`, run `bun run generate` from `packages/client`. Do not edit `src/generated` or `src/generated-effect` directly.
 - Keep runtime dependencies directed from Schema to Core and Protocol, then from Core and Protocol to Server. Client runtime code may depend on Schema and Protocol but never Core or Server; `sdk-next` composes Client, Core, and Server.
-- The default branch in this repo is `dev`.
-- Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
+- The default product branch in this BAIRUI repo is `main`; use `main` or `origin/main` for product diffs.
+- `origin` is `LUTAO581314/xingyao-xuanji`; `upstream` is `anomalyco/opencode`. Use `upstream/dev` only when reviewing upstream changes.
+- Preserve `conversation-archive` as historical records and `product-v2` as a frozen product branch; do not rewrite or delete them during release preparation.
 
 ## Branch Names
 

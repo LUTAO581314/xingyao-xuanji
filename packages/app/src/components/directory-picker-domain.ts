@@ -249,6 +249,28 @@ import { getFilename } from "@opencode-ai/core/util/path"
 import fuzzysort from "fuzzysort"
 import { ServerSDK } from "@/context/server-sdk"
 
+type LocalDirectoryAccess = {
+  api: ServerSDK["client"]["local"]
+  drives: Array<{ name: string; path: string }>
+}
+const localDirectoryClients = new WeakMap<ServerSDK, Promise<LocalDirectoryAccess | undefined>>()
+
+export function localDirectoryAccess(sdk: ServerSDK) {
+  const existing = localDirectoryClients.get(sdk)
+  if (existing) return existing
+  // Root routes belong to the generated SDK client, not the workspace API.
+  // Probe the extension so unmodified upstream and V1 servers retain their picker.
+  const api = sdk.client?.local
+  const request = api
+    ? api
+        .drives({ throwOnError: true })
+        .then(({ data }) => ({ api, drives: data }))
+        .catch(() => undefined)
+    : Promise.resolve(undefined)
+  localDirectoryClients.set(sdk, request)
+  return request
+}
+
 export function cleanPickerInput(value: string) {
   const first = (value ?? "").split(/\r?\n/)[0] ?? ""
   return first.replace(/[\u0000-\u001F\u007F]/g, "").trim()
@@ -342,18 +364,28 @@ export function createDirectorySearch(args: { sdk: ServerSDK; base: () => string
     const key = trimPickerPath(directory)
     const existing = cache.get(key)
     if (existing) return existing
-    const request = args.sdk.api.file
-      .list({ location: { directory: key } })
-      .then((result) => result.data)
-      .catch(() => [])
-      .then((nodes) =>
-        nodes
+    const request = (async (): Promise<Array<{ name: string; absolute: string }>> => {
+      const local = await localDirectoryAccess(args.sdk)
+      if (local) {
+        const result = await local.api.directories({ path: key }, { throwOnError: true })
+        return result.data.entries
           .filter((node) => node.type === "directory")
           .map((node) => {
-            const relative = trimPickerPath(normalizePickerDrive(node.path))
-            return { name: getFilename(relative), absolute: joinPickerPath(key, relative) }
-          }),
-      )
+            const absolute = canonicalPickerPath(node.path)
+            return {
+              name: node.name || getFilename(absolute),
+              absolute,
+            }
+          })
+      }
+      const nodes = (await args.sdk.api.file.list({ location: { directory: key } })).data
+      return nodes
+        .filter((node) => node.type === "directory")
+        .map((node) => {
+          const relative = trimPickerPath(normalizePickerDrive(node.path))
+          return { name: getFilename(relative), absolute: joinPickerPath(key, relative) }
+        })
+    })().catch(() => [])
     cache.set(key, request)
     return request
   }

@@ -1,0 +1,54 @@
+# BuildKit provides TARGETARCH as an automatic platform argument. Declare it
+# before the first FROM so the final stage selector also works with explicit
+# --platform builds and older Docker clients.
+ARG TARGETARCH
+
+FROM alpine:3.22 AS base
+
+# Keep the container runtime small while retaining the native OpenCode tools.
+RUN apk add --no-cache libgcc libstdc++ ripgrep wget
+
+ARG BAIRUI_VERSION=1.18.31-bairui-brand.2
+LABEL org.opencontainers.image.title="BAIRUI" \
+  org.opencontainers.image.description="BAIRUI portable OpenCode runtime" \
+  org.opencontainers.image.version="${BAIRUI_VERSION}" \
+  org.opencontainers.image.source="https://github.com/LUTAO581314/xingyao-xuanji"
+
+FROM base AS build-amd64
+COPY dist/opencode-linux-x64-baseline-musl/bin/opencode /usr/local/bin/opencode
+
+FROM base AS build-arm64
+COPY dist/opencode-linux-arm64-musl/bin/opencode /usr/local/bin/opencode
+
+FROM build-${TARGETARCH} AS runtime
+
+ARG BAIRUI_VERSION=1.18.31-bairui-brand.2
+
+COPY docker-entrypoint.bairui.sh /usr/local/bin/bairui-entrypoint
+
+# BAIRUI only changes the identity layer. Model, provider, MCP, session,
+# permission, and plugin configuration remain native OpenCode configuration.
+ENV BAIRUI_NAME=星杳 \
+  BAIRUI_PROMPT_DISABLED=false \
+  XDG_DATA_HOME=/var/lib/bairui/data \
+  XDG_CONFIG_HOME=/var/lib/bairui/config \
+  XDG_CACHE_HOME=/var/cache/bairui \
+  XDG_STATE_HOME=/var/lib/bairui/state \
+  HOME=/var/lib/bairui/home \
+  OPENCODE_CONFIG_DIR=/var/lib/bairui/config/opencode
+
+RUN chmod 0555 /usr/local/bin/opencode \
+  && chmod 0555 /usr/local/bin/bairui-entrypoint \
+  && mkdir -p /var/lib/bairui/data /var/lib/bairui/config/opencode \
+    /var/lib/bairui/state /var/lib/bairui/home /var/cache/bairui /workspace \
+  && opencode --version
+
+WORKDIR /workspace
+EXPOSE 13148
+VOLUME ["/var/lib/bairui/data", "/var/lib/bairui/config", "/var/lib/bairui/state", "/var/cache/bairui", "/workspace"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=5 \
+  CMD-SHELL if [ -n "$$OPENCODE_SERVER_PASSWORD" ]; then wget -q --user="$$OPENCODE_SERVER_USERNAME" --password="$$OPENCODE_SERVER_PASSWORD" -O - http://127.0.0.1:13148/global/health >/dev/null; else wget -q -O - http://127.0.0.1:13148/global/health >/dev/null; fi
+
+ENTRYPOINT ["/usr/local/bin/bairui-entrypoint"]
+CMD ["serve", "--hostname", "0.0.0.0", "--port", "13148"]
